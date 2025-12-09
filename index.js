@@ -54,7 +54,18 @@ const client = new MongoClient(process.env.MONGODB_URI, {
 async function run() {
   try {
     const db = client.db("LocalChefBazaar");
+    const mealsCollection = db.collection("meals");
 
+    app.post("/meals", async (req, res) => {
+      const meal = req.body;
+      const result = await mealsCollection.insertOne(meal);
+      res.send({ insertedId: result.insertedId });
+    });
+
+    app.get("/meals", async (req, res) => {
+      const result = await mealsCollection.find().toArray();
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
