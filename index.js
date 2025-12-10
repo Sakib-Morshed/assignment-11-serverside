@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
 const port = process.env.PORT || 3000;
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
@@ -55,6 +55,8 @@ async function run() {
   try {
     const db = client.db("LocalChefBazaar");
     const mealsCollection = db.collection("meals");
+    const reviewsCollection = db.collection("reviews");
+    const favoritesCollection = db.collection("favorites");
 
     app.post("/meals", async (req, res) => {
       const meal = req.body;
@@ -64,6 +66,85 @@ async function run() {
 
     app.get("/meals", async (req, res) => {
       const result = await mealsCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/meals/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await mealsCollection.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    //reviews api
+
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      review.date = new Date();
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+    app.get("/reviews/:foodId", async (req, res) => {
+      const foodId = req.params.foodId;
+      const result = await reviewsCollection
+        .find({ foodId })
+        .sort({ date: -1 })
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/my-reviews/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await reviewsCollection
+        .find({ reviewerEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
+    app.patch("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const result = await reviewsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData }
+      );
+      res.send(result);
+    });
+
+    app.delete("/reviews/:id", async (req, res) => {
+      const result = await reviewsCollection.deleteOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(result);
+    });
+
+    //Favorites api
+    app.post("/favorites", async (req, res) => {
+      const fav = req.body;
+
+      const exists = await favoritesCollection.findOne({
+        userEmail: fav.userEmail,
+        mealId: fav.mealId,
+      });
+      if (exists) {
+        return res.send({ message: "Already added" });
+      }
+
+      fav.addedTime = new Date();
+      const result = await favoritesCollection.insertOne(fav);
+      res.send(result);
+    });
+
+    app.get("/favorites/:email", async (req, res) => {
+      const result = await favoritesCollection
+        .find({ userEmail: req.params.email })
+        .toArray();
+      res.send(result);
+    });
+
+    app.delete("/favorites/:id", async (req, res) => {
+      const result = await favoritesCollection.deleteOne({
+        _id: new ObjectId(req.params.id),
+      });
       res.send(result);
     });
     // Send a ping to confirm a successful connection
